@@ -1,0 +1,505 @@
+                java Concurrency Troubleshooting:Latency and Throughtput
+
+
+
+
+One Processor --> multithread or any special jvm tunning
+how to diagnose and possibly resolve multithreading problem
+                                minimum space or task of user
+                                the web app response is not on fleek
+                                your API is slow
+
+what "its slow" usually refer to the [Throughput ,latency]
+            
+            
+Throughput--> how many task can be handled simuntaneously over a period  of time?
+how long it take for microservice to responde to an API request
+Latency--> how long will the task take?
+how many concurrent API request that same microservice can handle
+(both of these metrics shares a similar root risk  [waiting or blocked thread])
+
+                waiting thread=slow performances( having a thread wait to do anything(coonect,retireive ,send...)anything it become problematic)it will breank your java application
+                service or website crashing under the weight of volume happens to some of the biggest name in the business
+unchecked latency problem will become throughtput problem(reverse is also possible)
+
+the capacity of service new microservice request start to diminish, numbe rof request you can concurrently handle start to suffer
+even if your application start out with the ability to complete a single request in record time, if the application is not configured or build to handle multiple concurrent request many clien will have to wait their turn
+
+
+
+Synchronization--> it is fundamental mechanism that the java code /program used to maintain  orderly
+                   one by  one access to field , a method, or data structure
+
+                   preventes data accessing corruption
+                   sunchronized---> vector,StringBuffer
+                   unsynchronized--> ArrayList , stringBuilder
+Synchronization is costly process, try to design around it , if you can,but it not premature optimization
+its usually aviodable overhead that you could do without using good design pattern,right data structure
+or classes that doesnot  dependence on synchronization to work properly
+
+thread safety is not usually free
+choose Async logging  where you can
+
+Locking-->     usually required for synchronization 
+
+Multithreading problem is  hard to detect just by reading your code? how does it work?     solution
+
+Does your application/microservice seems to freeze at somewhat regular interval?_________
+do thing seems to  suddenly stop working under high volume?                              |Garbage Collector
+does your servers CPU  utilization suddenly spikes for no apparent reason?_______________|
+
+Garbage Collector
+it is process of cleaning up the physical RAM space occupied by unused java objects
+GC is pretty big deal and getting it right is crucial , its a configuration items for jvm and you should consider right GC configuration for your specific deployment scenario
+
+You want to clean up your RAM but you dont want to spend too long to doing it, you can best observe the effect of GC with APM (application performance monitoring tools)like datadog, new relic and number of embedded JDK utilities
+there is a great deal of flexibility in preventing the performance problem
+JDK 8 introduce increasingly efficient GC
+                CMS GC(concurrent mark sweep garbage collector)--->old, pre JDK 9
+                G1 GC--->JDK 9 and later
+                Z GC--->JDK 11 na d later
+
+garbage collector will block all other thread in the JVM while they do their thing
+the question is-->how long would it block the JVM for?
+                  how much RAM will be freed up?
+what you need to be aware of is ,the garbage collection is a reason why your users cant have access to your application 
+            GC could sometimes be selfish
+            decide how long youre willing to wait
+            how much heap space you'd like to reclaim
+
+more thread = more throughput
+
+Resouces pooling -->pooling is a design approach where you can pre-create and store multiple instance of expense component like(DB Connection, messaging queue, Network Connection)
+            efficiennt use of black box system
+            predictale forecasting ofan application capacity
+you cant avoid efficient usage of
+                SQL quries
+                Hibernates or Java persistence API
+                Network Tunning
+
+
+To improve the throughput of our application --> reactive programming framework  like 
+                        Reactive JAX-RS
+                        Reactive SpringBoot(WebFlux)
+                        Vert.x
+                        Rx java
+    
+Think of your application is series of steps 
+
+                    Accept Input
+                        |  thread1
+                        v
+                    Validate Input
+                        |  thread2
+                        v
+                    Execute Business Logic
+
+reactive programming framework allow different thread to handle  different steps
+eg: in rest web service framework like springboot
+-(one thread will accept the connection request from the service client, i can then hand off the request to a separete thread to execute the business logic , freeing up the first thread to continue accepting request)
+
+JMH -->java benchmark harness
+
+if you can't  improve latency  focus on improving throughput
+
+
+JAVA Stream :
+stream are efficient mechanism for processing data
+the data can be fed from data source like a collection , an operation , an even some IO resources
+immutable,support parallelism, flent API  with lambda expression (.stream(), .parallelstream())
+it possibleto get even worse performance from parallelizing the stream operation
+if some reason you dont have multiple CPU available to you and you try to use paralel stream , you might not get performance boost(know your hardware)
+
+so dont go parallel for processing list of say like four item for example
+parallelizing stream works best when you have a finite data source
+
+Beaware of shared thread pool(if you have two parallelstream method the invoke cooncurrently by different thread both method serve individual thread both of them are drawing from same single thread pool of thread )
+if either of this method takes too long or does some complex calculation and its hogging (someone who takes much more than a fair share of something) all the thread , it can strave your entire application of available thread to service request(it is a weakness of the java streaming API)
+
+
+stream fit for-->
+ when you have multicore machines
+ not parallelized on infinite data sources
+ parallelism is not for small workload
+
+
+
+find the source of blocakges?
+ speed it up?
+ as a developer or person you cant find without using "tool"
+ when youre trying to find the root cause  of latency
+
+        two categories of tools
+
+1.reactive tool
+                most useful after performance issue have happened
+                great forensic analysis tool and generally free
+reactive tool example:
+        Thread dump analyzers
+        jcmd
+        jstat
+        jstack
+        java flight recorder
+                       
+
+2.proactive tool
+                real time monitoring of latency and throughput application
+                end-end visibility
+                altering capacity preferred
+
+proactive tool example:
+        pinpoint
+        datadog
+        prometheus
+        new relic
+        java mission control
+        jvisualvm
+
+
+Static Analyzer---> it is a tool that scan you code either as a command line  tool or as an IDE plugins
+PMD(programming mistake detector), findBugs
+you need APM tool to save time and money
+
+collect JVM thread  dump
+thead dump is all the thread that the java process is running
+primarly, what individual thread inside the JVM  are doing at the given moment 
+        you get to see the method that each running thread is executing 
+        status of the thread
+        you also get to see the locks that each thread is holding
+very usedful for detecting the deadlocks between the thread
+
+there are couple of way to collect thread dumps?
+         , java mission control
+         , java flight recorder
+         , jcmd
+         , jstack
+         , jvisualvm
+        
+        find  you java process id? on terminal -->use:
+                                        for windows:    tasklist/fi"imagename eq java.exe" or jcmd 
+                    it will show id that java.exe running on console, note the id and type
+                                           jcmd id_num Thread.print
+                    after running, send it to file by using 
+                                           jcmd id_num Thread.print >file_thread_dumps.file
+                    content of the thread dump will be sent to that file on your disk
+
+                                        for  mac and unix:     pgrep java
+
+
+also find the thread sleeping? by doing the above process and on specific file, find word sleep on the file
+
+manually analyzing a thread dump isnt practical
+online thread dump analyzer:
+            jstack.review
+            spotify the thread dump analyzer
+
+
+
+identifying blocked thread in thread dumps?
+key field of java thread dump:
+                        Name
+                        ID
+                        Daemon Status
+                        OS thread ID
+                        Status(mainly focus on those status(like runnable,blocked,waiting,timed_waiting))
+                        Timing(CPU and Elapsed)-->contributed by open JDK
+                        Active Stack trace
+
+view the blocked thread with (java mission control),(java flight recorder)
+jmc-->
+        JDK 10 and earlier: run jmc in the  terminal
+        JDK 11 and later:  download from oracle website
+
+
+JMH -->java benchmark harness
+        @Benchmark
+        you can find the (source text, mode, count, score, error , units)
+
+
+---------------------------------------------------------------------------------------------------------------
+
+                        java Concurrency Troubleshooting:Data Access and concurrency
+
+accessing runtime data can go wrong in the multitheaded java application
+dirty Read,Non Repeatable Read ,plantom Read
+Transaction of database , data storage system(message queue)
+guarantee ACID
+jdbc transaction isolation level
+
+
+
+
+Unsafe class level variable Access:
+
+
+LongAdder,AtomicInteger are the " java.util.concurrent.atomic" packages
+
+Race Condition: this condition is happen in memory, in database and anywhere(wherever your behaviour of the application become unpredicatable due to malformed data being mangaled concureently)
+(same variable access by the multiple thread)
+
+        safely hanfling the mutable data:
+
+        1.using volatile(change suddenly) keyword , they sure that they getting latest value from  the memory
+         concurrent write the volatile variable is slightly costly and introduce some performance problem at scale(there still a risk that thread will see partially complete data from this collection)
+
+        2.synchronization(if you want near absolute guarantee of thread safety in your code)it use locking mechanism(its make sure that theres orderly one by one access to block of code)but if every thread has to wait their turn(one by one access is disaster in a large scale enterprise application)but atleast you get thread safety
+
+        3.java.util.concurrent.automic
+         using compare and swap(CAS)it make sure  that any thread accessin field using these class get the latest updates to those fields (this option is preferable)like AtomicInteger,AtomicLong,AtomicBoolean
+         AtomicLongArray introduced in JDK 8 -->limitation(not suitable complex arithmetic)
+
+
+Race condition with data structure
+
+      safely hanfling the mutable data:
+      thread safety collection class
+      1.java.util.vector
+      some classes java.util.concurrent
+      2.java.util.concurrent
+                coordinate the order of access between the thread(countdownLatch,semaphore)
+                concurrent access class(concurrentHashmap, concurrentLinkedDeque and concurrentQueue)
+                                        copyonwriteArrayList, copyonwriteArraySet
+
+
+Deadlocked Thread:
+ these thread describe a situation where two or more thread are blocked forever, waiting for each other
+ (if thread1 is trying to invokea a method on object2 , it need to acquire the lock on object2 but because thread 2 has already invoked a synchronized methode on object2 , it already has that lock)so when both thread now need to invoke the synchronized methods on each other object ,they get deadlock because they will essentially enter an infinite loop trying to acquire ech other lock
+<!-- 
+public class Brower {
+    public synchronized void bow(Brower brower) {
+        System.out.println(Thread.currentThread().getName() + " bows to " + brower);
+        brower.bowBack(this);
+    }
+
+    public synchronized void bowBack(Brower brower) {
+        System.out.println(Thread.currentThread().getName() + " bows back to " + brower);
+    }
+    public static void main(String[] args) {
+        Brower a = new Brower();
+        Brower b = new Brower();
+
+
+        Thread thread1 = new Thread(new Runnable() {
+            public void run() {
+                a.bow(b);
+            }
+        });
+
+        Thread thread2 = new Thread(new Runnable() {
+            public void run() {
+                b.bow(a);
+            }
+        });
+
+        thread1.start();
+        thread2.start();
+    }
+} -->
+
+We create two threads, thread1 and thread2, each attempting to call bow() on one object and then the other.
+thread1 attempts to execute "a.bow(b)",
+while thread2 attempts to execute" b.bow(a)."
+Both bow() methods are synchronized, meaning only one thread can execute them at a time.
+If thread1 to get the lock on object "a" 
+and thread2 to get the lock on object "b" simultaneously, 
+they will both be waiting for the other to release the lock, leading to a deadlock
+
+
+TWO categories of tool that will help you identify deadlock
+1.finding and preventing deadlock
+static code analyzer:
+                PMD(programming mistake detector)
+                findBugs
+runtime analyzer:
+                jvm tool(jvisualVM,console, JFR(java flight recorder))
+                jvm agents
+use thread dumps(to manuallly identify deadlock)raw printouting allthe threads running in your JVM
+                    capture with either icmd,jstack,or other JVM tool
+
+
+
+
+
+concurrent database Access Issues:
+
+
+do you know what  happen when bunch of web service are trying to hit the same set of database table row?
+you are going to run into the ever-present "race condition"
+what to do?
+data accessing option in java:
+            using  raw SQL like JDBC
+            framework like spring data JPA(java persistence API)
+            ORM layer like Hibernate
+
+
+Dirty Read-->one thread reading the incomplete data that currently being written by  a different thread
+non-repeatable read--> on thread reading the same data and getting different  value each time due to 
+                        another thread (data that is inconsistent)
+plantom read-->one thread reading data that disappers after it has been read, because another thread erased it
+
+
+one way is to mitigate this problem by configuring whats konws as isolation  level --->transaction
+transaction is a database mechanism  that ensure the integrity of your interaction with the database
+it provide the ACID guarantee
+
+Atomicity:
+          (ALL or Nothing)
+          when you mark any sequence of methods call as transactional <br>
+          they all must execute (successfully as one) or (fail as one) <br>
+          Any failure in the chain should trigger an undo of the call before the  failure point
+          as well as RollingBack any data change made prior to failure
+
+          [Atomicity in a database transaction means that all the changes made during that transaction are treated as one "bundle" of changes
+          when you are trying to modify your database, it's either all of the changes happen at the same time, or none of them happen at all.]
+  
+  
+Consistency:
+          a database insert must  respect integrity rules and constraints
+
+          [Consistency in databases means that the data stored in the database is always in a valid and consistent state.
+          For example, if the database contains any constraints such as primary keys, foreign keys, and so on, it should always conform to the rules surrounding the constraint.
+          let's say a table has a rule that says a specific column must be an integer value. Consistency ensures that this rule is always followed and data inserted into the column can only be of the integer value data type.
+          ]
+
+Isolation:
+          here is where multithreading really comes in
+          isolation is guarantee that you interaction with database is protected from any adverse effect of concurrent
+          access to same data
+
+          [The ability of multiple transactions to execute without interfering with one another is known as Isolation. The isolation level of a transaction determines how the changes made by that transaction are visible to other transactions.]
+
+
+Durability
+          durability is a guarantee of assets that stipulate as long as the transaction has been committed 
+          successfully to the database , the data stay committed
+          even in the event of a massive  system failure (like  disk or hardware kind of failure)
+
+
+
+
+
+
+          Isolation is consider for  multithreading
+JDBC (java API for database connectivity)
+transaction isolation level:
+
+            level:
+            read_uncommitted-->                        allow (dirty,phantom, non-repeatable) read
+            read_committed--> prevent (dirty)           allow (phantom, non-repeatable) read
+            repeatable_read--> prevent (dirty,  phantom) allow(non-repeatable) read
+            serialization-->  prevent (dirty,phantom, non-repeatable) read(has high performance)
+
+java API support for transaction
+JDBC
+JTA(it doesn't allow isolation level configuration)
+javax.transaction.Transactional
+            spring Framework:(it allow isolation level configuration)
+                        org.springframework.transaaction
+                        annotation.Transactional
+@Transaction
+so if you omit this annotation from your method youre running the risk of connection leaks and connection pool exhaustion
+
+Database Lost Transaction:
+        when multiple thread are trying to modify the  different column of the same row
+
+thread A update  the column of order id 1,2 in progress first before it get chance to commit the update
+thread B also hold a same rowand made  a update to the same column for a different value
+both transaction A and B  started with same copy of that row
+because most  database default to the read_committed isolation level but these two transaction are unknowingly clubbers each other change as soon they try to commit
+only one transaction changes will be visible
+the last transaction to commit even its separate only by microseconds from previous one
+they both come away thinking they've done the right thing with the data
+
+        one way to mitigate against lost update condition
+1. Is to increase the isolation level of your transaction to repeatable read( on thread reading the same data and getting different  value each time due to another thread )
+framework like hibernate(can get this implicitly because it caches a single instance of each entity) 
+2. optimistic locking
+a mechanism supported by most "object relational mapping" framework (ORMs)
+ ORM standard like JPA(java persistence API )it support  the @Version annotation (using thi annotation persistence API implementation can keep track of different version of the same database row being accessed concurrently)when each instance of the database row is being tracked with version field
+ the ORM can increment the version number for every modification made to that  particular row
+ (using serial number to trac different version of the same row or entity)
+
+ checkthis out : https://vladmihalcea.com/
+
+
+ Long running transaction:
+ 
+ 
+                ____ SQL work
+ @transactional |    long computation
+                |____ External Service call
+
+
+
+<!-- 
+@Transactional 
+public void method(Integer entityID)
+    {
+        // it load the database from the database
+        BasicEntity basicentity = findEntityById(entityID);
+
+        // it does some computation  on the result of the database query
+        TransformedDto  transaformedDto =performLongTransformation(basicentity);
+
+        //call out the webservice
+        WebServiceResponse webserviceresponse = callWebService(transaformedDto);
+
+} -->
+
+To execute a database call above method needs to grab the database connection at the start of transaction
+That connection could come from a connection pool or directly from the database itself ot it could also come as a result of entering a block annotation @Transactional  
+
+        First: sql transaction itself may fall victim to an inefficient query, while waiting to acquire log to the database table
+        then long computation and webservice call could each take a long time for any number of reason
+                because you could be forgot to set a connection timeout or read timeout on the external webservice call
+                youre exposing to a variety of problem related to transaction isolation,lost update or just locking out other thread
+                from using the same row
+
+first rule of thump:
+        aviod combining long  running database calls or logic
+        not mix the non-database call into database transaction boundaries(eg: calling out to a web service  and executing database commands inside the same transaction block is not a great idea)
+        size you transactional reasonably(try not to do too many database call on same hibernate session or same JDBC connection)
+
+
+mitigate long transaction with hibernate
+concrete mechanism  to manage the transaction size:
+                                            Detached entities
+                                            Extended sessions
+                                            automatic Versioning
+                        
+Diagnose Long Running transaction:
+        1.database specific tooling(query the database itself to watch for long session)
+        2.APM(applicatin performance monitoring) eg:pinpoint
+        3.Hibernate specific moinitoring(logging/watching for start and end time ofconnection acquisition in your java code, not thread safe)
+
+
+
+java stream and lambda concurrency issues
+
+cheap parallelism and immutability
+            1.don't modify data sourcess while streaming in parallel
+                (java handle parallel stream internally, it partition the stream sources into chunks and processes the individual chunck with separate threads--> when you modify the source after asking for a parallel stream , the JVM wont know  how to break up the source into chunck)
+            
+            2.avoid synchronization  while streaming in parallel
+
+            3.dont depend on item order  while streamin in parallel(parallelising opreration where order matters, the streams API does not offer an order option to parallrlizon operation and streams )if you use divide and conquer to make particular order may be its time to reconsider the design
+
+            4.Don't manipulate outside variable in lambda function(avoid mutating state in lambda function)
+
+ <!-- // Create a list of integers
+ int[] numbers = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+ // Convert the array to a parallel stream
+ Arrays.stream(numbers)
+.parallel() // Use parallel stream
+.forEach(num -> {
+    System.out.println("Processing number: " + num);
+    // Simulate some modification to the source
+    if (num == 5) {
+ numbers[0] = 100; // Modify the source array
+ System.out.println("Source modified at index 0");
+    }
+}); -->
+
+
+thread dump:it is a snapshot of all the running threads in your java process
